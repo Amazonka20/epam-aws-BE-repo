@@ -2,7 +2,7 @@
   "name": "epam-aws-be-repo",
   "version": "0.1.0",
   "bin": {
-    "epam-aws-be-repo": "bin/epam-aws-be-repo.js"
+    "main": "bin/product-service.ts"
   },
   "scripts": {
     "build": "tsc",

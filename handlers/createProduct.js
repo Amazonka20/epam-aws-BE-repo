@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, TransactWriteCommand } = require("@aws-sdk/lib-dynamodb");
 const { v4: uuidv4 } = require("uuid");
 
 const client = new DynamoDBClient({});
@@ -38,8 +38,24 @@ exports.handler = async (event) => {
             count: body.count,
         };
 
-        await ddbDocClient.send(new PutCommand({ TableName: productsTable, Item: newProduct }));
-        await ddbDocClient.send(new PutCommand({ TableName: stockTable, Item: newStock }));
+        await ddbDocClient.send(
+          new TransactWriteCommand({
+            TransactItems: [
+              {
+                Put: {
+                  TableName: productsTable,
+                  Item: newProduct,
+                },
+              },
+              {
+                Put: {
+                  TableName: stockTable,
+                  Item: newStock,
+                },
+              },
+            ],
+          })
+        );
 
         return {
             statusCode: 201,

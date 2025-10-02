@@ -1,59 +1,102 @@
-import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as path from 'path';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as apigw from 'aws-cdk-lib/aws-apigateway';
-import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cdk from "aws-cdk-lib";
+import { Construct } from "constructs";
+import * as path from "path";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as apigw from "aws-cdk-lib/aws-apigateway";
+import * as logs from "aws-cdk-lib/aws-logs";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as lambdaNodejs from "aws-cdk-lib/aws-lambda-nodejs";
 
 export class ProductServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    const productsTable = dynamodb.Table.fromTableName(
+      this,
+      "ProductsTable",
+      "products"
+    );
+    const stockTable = dynamodb.Table.fromTableName(
+      this,
+      "StockTable",
+      "stock"
+    );
+
     const logRetention = logs.RetentionDays.ONE_DAY;
 
-    const getProductsList = new lambda.Function(this, 'GetProductsListFn', {
+    const getProductsList = new lambda.Function(this, "GetProductsListFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'getProductsList.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../handlers')),
+      handler: "getProductsList.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "../handlers")),
       memorySize: 128,
       timeout: cdk.Duration.seconds(5),
       environment: {
-        CORS_ORIGIN: process.env.CORS_ORIGIN ?? '*',
+        CORS_ORIGIN: process.env.CORS_ORIGIN ?? "*",
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCK_TABLE: stockTable.tableName,
       },
       logRetention,
     });
 
-    const getProductsById = new lambda.Function(this, 'GetProductsByIdFn', {
+    const getProductsById = new lambda.Function(this, "GetProductsByIdFn", {
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'getProductsById.handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../handlers')),
+      handler: "getProductsById.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "../handlers")),
       memorySize: 128,
       timeout: cdk.Duration.seconds(5),
       environment: {
-        CORS_ORIGIN: process.env.CORS_ORIGIN ?? '*',
+        CORS_ORIGIN: process.env.CORS_ORIGIN ?? "*",
+        PRODUCTS_TABLE: productsTable.tableName,
+        STOCK_TABLE: stockTable.tableName,
       },
       logRetention,
     });
 
-    const api = new apigw.RestApi(this, 'ProductsApi', {
-      restApiName: 'Products Service',
+    productsTable.grantReadData(getProductsList);
+    stockTable.grantReadData(getProductsList);
+
+    productsTable.grantReadData(getProductsById);
+    stockTable.grantReadData(getProductsById);
+
+    const createProduct = new lambdaNodejs.NodejsFunction(
+      this,
+      "CreateProductFn",
+      {
+        entry: path.join(__dirname, "../handlers/createProduct.js"),
+        handler: "handler",
+        runtime: lambda.Runtime.NODEJS_20_X,
+        environment: {
+          CORS_ORIGIN: process.env.CORS_ORIGIN ?? "*",
+          PRODUCTS_TABLE: productsTable.tableName,
+          STOCK_TABLE: stockTable.tableName,
+        },
+        logRetention,
+      }
+    );
+
+    productsTable.grantWriteData(createProduct);
+    stockTable.grantWriteData(createProduct);
+
+    const api = new apigw.RestApi(this, "ProductsApi", {
+      restApiName: "Products Service",
       deployOptions: {
-        stageName: 'dev',
+        stageName: "dev",
       },
       defaultCorsPreflightOptions: {
-        allowOrigins: [process.env.CORS_ORIGIN ?? '*'],
-        allowMethods: ['GET'],
+        allowOrigins: [process.env.CORS_ORIGIN ?? "*"],
+        allowMethods: ["GET"],
       },
     });
 
-    const products = api.root.addResource('products');
-    products.addMethod('GET', new apigw.LambdaIntegration(getProductsList));
+    const products = api.root.addResource("products");
+    products.addMethod("GET", new apigw.LambdaIntegration(getProductsList));
+    products.addMethod("POST", new apigw.LambdaIntegration(createProduct));
 
-    const productById = products.addResource('{productId}');
-    productById.addMethod('GET', new apigw.LambdaIntegration(getProductsById));
+    const productById = products.addResource("{productId}");
+    productById.addMethod("GET", new apigw.LambdaIntegration(getProductsById));
 
-    new cdk.CfnOutput(this, 'ProductsApiUrl', {
-      value: api.url ?? 'undefined',
+    new cdk.CfnOutput(this, "ProductsApiUrl", {
+      value: api.url ?? "undefined",
     });
   }
 }

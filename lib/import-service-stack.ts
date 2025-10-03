@@ -6,6 +6,7 @@ import * as lambdaNode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
 import * as s3n from "aws-cdk-lib/aws-s3-notifications";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 
 export class ImportServiceStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
@@ -34,11 +35,17 @@ export class ImportServiceStack extends cdk.Stack {
       ],
     });
 
+    new s3deploy.BucketDeployment(this, "CreateUploadedPrefix", {
+      destinationBucket: this.bucket,
+      sources: [s3deploy.Source.data("uploaded/placeholder.txt", "placeholder")],
+    });
+
     const importProductsFileFn = new lambdaNode.NodejsFunction(
       this,
       "ImportProductsFileFn",
       {
         entry: "handlers/importProductsFile.js",
+        handler: "importProductsFile",
         runtime: lambda.Runtime.NODEJS_20_X,
         memorySize: 128,
         timeout: cdk.Duration.seconds(10),
@@ -64,6 +71,7 @@ export class ImportServiceStack extends cdk.Stack {
       "ImportFileParserFn",
       {
         entry: "handlers/importFileParser.js",
+        handler: "importFileParser",
         runtime: lambda.Runtime.NODEJS_20_X,
         memorySize: 256,
         timeout: cdk.Duration.seconds(30),

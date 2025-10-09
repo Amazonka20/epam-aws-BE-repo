@@ -1,10 +1,3 @@
 [
-  { "id": "p-1", "title": "Coffee Beans", "price": 12.9, "count": 10 },
-  { "id": "p-2", "title": "Coffee Grinder", "price": 39.0, "count": 4 },
-  { "id": "p-3", "title": "Espresso Machine", "price": 499.0, "count": 2 },
-  { "id": "p-4", "title": "French Press", "price": 25.0, "count": 15 },
-  { "id": "p-5", "title": "Coffee Capsules (pack of 10)", "price": 6.5, "count": 30 },
-  { "id": "p-6", "title": "Cold Brew Bottle", "price": 18.0, "count": 7 },
-  { "id": "p-7", "title": "Milk Frother", "price": 35.0, "count": 5 },
-  { "id": "p-8", "title": "Reusable Coffee Cup", "price": 12.0, "count": 20 }
+  { "id": "p-1", "title": "Coffee Beans", "price": 12.9, "count": 10 }
 ]

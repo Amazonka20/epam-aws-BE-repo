@@ -7,6 +7,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
 import * as s3n from "aws-cdk-lib/aws-s3-notifications";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 
 export class ImportServiceStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
@@ -37,7 +38,9 @@ export class ImportServiceStack extends cdk.Stack {
 
     new s3deploy.BucketDeployment(this, "CreateUploadedPrefix", {
       destinationBucket: this.bucket,
-      sources: [s3deploy.Source.data("uploaded/placeholder.txt", "placeholder")],
+      sources: [
+        s3deploy.Source.data("uploaded/placeholder.txt", "placeholder"),
+      ],
     });
 
     const importProductsFileFn = new lambdaNode.NodejsFunction(
@@ -82,6 +85,18 @@ export class ImportServiceStack extends cdk.Stack {
       }
     );
 
+    const catalogItemsQueueArn = cdk.Fn.importValue("CatalogItemsQueueArn");
+    const catalogItemsQueueUrl = cdk.Fn.importValue("CatalogItemsQueueUrl");
+
+    const catalogItemsQueue = sqs.Queue.fromQueueArn(
+      this,
+      "ImportedCatalogItemsQueue",
+      catalogItemsQueueArn
+    );
+
+    importFileParserFn.addEnvironment("CATALOG_SQS_URL", catalogItemsQueueUrl);
+
+    catalogItemsQueue.grantSendMessages(importFileParserFn);
     this.bucket.grantRead(importFileParserFn, "uploaded/*");
     this.bucket.grantDelete(importFileParserFn, "uploaded/*");
     this.bucket.grantPut(importFileParserFn, "parsed/*");

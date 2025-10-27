@@ -15,6 +15,7 @@ export class ImportServiceStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+    const logRetentionDays = logs.RetentionDays.ONE_DAY;
 
     this.bucket = new s3.Bucket(this, "ImportBucket", {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -55,7 +56,7 @@ export class ImportServiceStack extends cdk.Stack {
         environment: {
           BUCKET_NAME: this.bucket.bucketName,
         },
-        logRetention: logs.RetentionDays.THREE_DAYS,
+        logRetention: logRetentionDays,
       }
     );
 
@@ -81,7 +82,7 @@ export class ImportServiceStack extends cdk.Stack {
         environment: {
           BUCKET_NAME: this.bucket.bucketName,
         },
-        logRetention: logs.RetentionDays.THREE_DAYS,
+        logRetention: logRetentionDays,
       }
     );
 
@@ -108,9 +109,26 @@ export class ImportServiceStack extends cdk.Stack {
     );
 
     const importRes = this.api.root.addResource("import");
+    const basicAuthorizerArn = cdk.Fn.importValue("BasicAuthorizerArn");
+
+    const basicAuthorizerFn = lambda.Function.fromFunctionArn(
+      this,
+      "ImportedBasicAuthorizer",
+      basicAuthorizerArn
+    );
+
+    const authorizer = new apigw.TokenAuthorizer(this, "BasicAuthorizer", {
+      handler: basicAuthorizerFn,
+      identitySource: "method.request.header.Authorization",
+    });
+
     importRes.addMethod(
       "GET",
-      new apigw.LambdaIntegration(importProductsFileFn, { proxy: true })
+      new apigw.LambdaIntegration(importProductsFileFn, { proxy: true }),
+      {
+        authorizer,
+        authorizationType: apigw.AuthorizationType.CUSTOM,
+      }
     );
   }
 }
